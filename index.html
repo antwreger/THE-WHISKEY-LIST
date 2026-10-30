@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#424647">
+  <meta name="description" content="En lokal demo av Brygghusets dryckeslista med sökning, filter och flaskadministration.">
+  <title>Dryckeslistan · Brygghuset</title>
+  <link rel="stylesheet" href="./src/styles.css">
+  <script type="module" src="./src/app.js"></script>
+</head>
+<body>
+  <div class="demo-bar">LOKAL DEMO <span>Exempelsortiment och exempelpriser</span></div>
+  <header class="site-header">
+    <a class="company-name" href="#lista" aria-label="Brygghuset, till dryckeslistan">Brygghuset <small>Fiskebäckskil</small></a>
+    <nav aria-label="Demovyer"><a href="#lista" id="customer-link">Dryckeslistan</a><a href="#admin" id="admin-link">Administration <span aria-hidden="true">↗</span></a></nav>
+  </header>
+  <main id="main"></main>
+  <footer><span class="footer-brand">Brygghuset <small>Fiskebäckskil</small></span><span class="footer-note">Demoversion · Ingen beställningsfunktion</span></footer>
+  <dialog id="bottle-dialog" aria-labelledby="dialog-title"></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
