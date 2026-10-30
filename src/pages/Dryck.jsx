@@ -1,17 +1,16 @@
-// Reused from August-2.0/src/pages/Dryck.jsx. List/search/filter logic unchanged.
-// Only site chrome, booking link, SEO and decorative scroll hooks omitted for the local demo.
-import { useState, useMemo, useEffect } from 'react'
-
-
-
-
-
-
-
+import LoadError from '../components/LoadError'
+import { useState, useCallback, useMemo, useEffect } from 'react'
+import useFadeOnScroll from '../hooks/useFadeOnScroll'
+import useFadeNearHeader from '../hooks/useFadeNearHeader'
+import useScrollToMiddle from '../hooks/useScrollToMiddle'
+import Header from '../components/Header'
+import Footer from '../components/Footer'
+import Seo from '../components/Seo'
 import { getBottles } from '../utils/dataProvider'
-import { useSearchParams } from 'react-router-dom'
+import { previewBottles } from '../mockData/previewBottles'
+import { Link, useSearchParams } from 'react-router-dom'
 import '../dryck.css'
-
+import '../aktuellt.css'
 
 function DrinkCard({ item }) {
   const [expanded, setExpanded] = useState(false)
@@ -27,6 +26,8 @@ function DrinkCard({ item }) {
         onClick={() => setExpanded(!expanded)}
         role="button"
         tabIndex={0}
+        aria-expanded={expanded}
+        aria-label={`${expanded ? 'Stäng detaljer för' : 'Visa mer info om'} ${item.namn}`}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') setExpanded(!expanded)
         }}
@@ -44,9 +45,10 @@ function DrinkCard({ item }) {
           </div>
         </div>
         <div className="dryck-info-right">
-          <span className="dryck-more-link">
-            {expanded ? 'Stäng' : 'Mer info'}
-          </span>
+          <span
+            className={`dryck-more-chevron ${expanded ? 'open' : ''}`}
+            aria-hidden="true"
+          />
         </div>
       </div>
 
@@ -139,9 +141,22 @@ function getItemSearchString(item) {
 
 function parseAge(ageStr) {
   if (!ageStr) return null
-  const match = ageStr.match(/(\d+)/)
+  const match = String(ageStr ?? '').match(/(\d+)/)
   return match ? parseInt(match[0], 10) : null
 }
+
+// Stil and Destilleri are the facets guests reach for first when
+// browsing a whisky/rom-lista, so they lead the accordion. Ålder,
+// Rökighet and Fat are finer-grained narrowing filters for someone
+// who already has a shortlist, so they sit further down.
+const FILTER_CATEGORY_ORDER = [
+  'Stil',
+  'Destilleri',
+  'Land & Region',
+  'Ålder',
+  'Rökighet',
+  'Fat',
+]
 
 const getUniqueTags = (items) => {
   const categories = {
@@ -210,14 +225,19 @@ const getUniqueTags = (items) => {
 }
 
 export default function App() {
+  useFadeOnScroll()
+  useFadeNearHeader()
+  useScrollToMiddle()
   const [searchParams] = useSearchParams()
+  const [loadError, setLoadError] = useState(false)
   const [data, setData] = useState({ whiskey: [], rums: [] })
 
   useEffect(() => {
     getBottles()
       .then(setData)
       .catch(() => {
-        setData({ whiskey: [], rums: [] })
+        if (import.meta.env.VITE_USE_MOCK_DATA === 'true') setData(previewBottles)
+        else setLoadError(true)
       })
   }, [])
 
@@ -225,22 +245,38 @@ export default function App() {
   const [search, setSearch] = useState('')
   const [showFilter, setShowFilter] = useState(false)
   const requestedCategory = searchParams.get('category')
-  const validCategoryFilter =
-    requestedCategory === 'whiskey' || requestedCategory === 'rom'
-      ? requestedCategory
-      : 'all'
-  const [categoryFilter, setCategoryFilter] = useState(validCategoryFilter) // 'all' | 'whiskey' | 'rom'
+
+  // 'Alla' doesn't exist as a mobile toggle, so an explicit
+  // ?category=all deep link on mobile falls through to the same
+  // default as no category at all.
+  const [categoryFilter, setCategoryFilter] = useState(() => {
+    if (requestedCategory === 'whiskey' || requestedCategory === 'rom') {
+      return requestedCategory
+    }
+    return window.innerWidth <= 800 ? 'whiskey' : 'all'
+  }) // 'all' | 'whiskey' | 'rom'
   const [selectedTags, setSelectedTags] = useState([])
 
   // Collapsible state for <800px view
   const [whiskeyOpen, setWhiskeyOpen] = useState(true)
   const [rumOpen, setRumOpen] = useState(true)
 
-  const isMobile = window.innerWidth <= 800 // Initial check, dynamic toggle handled by CSS+User Interaction mainly
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 800)
 
   useEffect(() => {
-    setCategoryFilter(validCategoryFilter)
-  }, [validCategoryFilter])
+    const onResize = () => setIsMobile(window.innerWidth <= 800)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  // Only an explicit ?category= in the URL should override the
+  // user's current selection after mount — a resize shouldn't yank
+  // someone back to a default mid-session.
+  useEffect(() => {
+    if (requestedCategory === 'whiskey' || requestedCategory === 'rom') {
+      setCategoryFilter(requestedCategory)
+    }
+  }, [requestedCategory])
 
   const allTags = useMemo(() => {
     const allItems = [...(whiskey || []), ...(rums || [])]
@@ -253,7 +289,7 @@ export default function App() {
     )
   }
 
-  const matchTags = (item) => {
+  const matchTags = useCallback((item) => {
     if (selectedTags.length === 0) return true
 
     return selectedTags.every((tag) => {
@@ -288,7 +324,7 @@ export default function App() {
 
       return false
     })
-  }
+  }, [selectedTags])
 
   const filteredWhiskey = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -306,7 +342,7 @@ export default function App() {
       const matchesTags = matchTags(w)
       return matchesSearch && matchesTags
     })
-  }, [search, whiskey, selectedTags])
+  }, [search, whiskey, matchTags])
 
   const filteredRums = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -324,89 +360,203 @@ export default function App() {
       const matchesTags = matchTags(r)
       return matchesSearch && matchesTags
     })
-  }, [search, rums, selectedTags])
+  }, [search, rums, matchTags])
+
+  const isFiltered = Boolean(search.trim()) || selectedTags.length > 0
 
   return (
     <div className="app-root">
+      <Seo
+        title="Dryck – ett stort utbud av whisky i Kungälv"
+        description="Utforska August Bistros dryckesutbud i Kungälv med ett stort utbud av whisky, ett brett urval av rom och exklusiva drycker för whisky- och cocktailälskare i Göteborgsområdet."
+        keywords="dryck Kungälv, whiskylista, whiskybar, ett stort utbud av whisky, August Bistro"
+      />
+      <Header />
+      <main>
+      {loadError && <LoadError message="Kunde inte ladda dryckeslistan." />}
 
       <section className="dryck-page-section" id="dryck-section">
         <div className="dryck-content-wrapper">
           <div className="dryck-content-container">
+            <div className="dryck-intro">
+              <h1>
+                {categoryFilter === 'whiskey' && 'Whiskey'}
+                {categoryFilter === 'rom' && 'Rom'}
+                {categoryFilter === 'all' && <>Whiskey &amp; Rom</>}
+              </h1>
+              {categoryFilter === 'whiskey' && (
+                <p>
+                  Utforska vårt noggrant utvalda sortiment av whiskey,
+                  eller boka en av våra uppskattade provningar.
+                </p>
+              )}
+              {categoryFilter === 'rom' && (
+                <p>
+                  Utforska vårt noggrant utvalda sortiment av rom, eller
+                  boka en av våra uppskattade provningar.
+                </p>
+              )}
+              {categoryFilter === 'all' && (
+                <p>
+                  Utforska vårt noggrant utvalda sortiment av whiskey och
+                  rom, eller boka en av våra uppskattade provningar.
+                </p>
+              )}
+              <Link
+                to="/dryckesprovningar"
+                className="btn CTA_btn dryck-cta"
+              >
+                Boka provning
+              </Link>
+            </div>
+
+            <div id="catalogue" />
+
             {/* Top Bar inside content logic */}
             <div className="dryck-top-bar">
-              <div className="controls-left">
-                <button
-                  className={`filter-btn ${showFilter ? 'active' : ''}`}
-                  onClick={() => setShowFilter(!showFilter)}
-                >
-                  Filter{' '}
-                  {selectedTags.length > 0 && `(${selectedTags.length})`}
-                </button>
-
+              <div className="dryck-top-row dryck-browse-row">
                 <div className="category-toggles">
+                  {!isMobile && (
+                    <button
+                      type="button"
+                      className={`cat-btn ${
+                        categoryFilter === 'all' ? 'active' : ''
+                      }`}
+                      aria-pressed={categoryFilter === 'all'}
+                      onClick={() => setCategoryFilter('all')}
+                    >
+                      Alla
+                    </button>
+                  )}
                   <button
-                    className={`cat-btn ${
-                      categoryFilter === 'all' ? 'active' : ''
-                    }`}
-                    onClick={() => setCategoryFilter('all')}
-                  >
-                    Alla
-                  </button>
-                  <button
+                    type="button"
                     className={`cat-btn ${
                       categoryFilter === 'whiskey' ? 'active' : ''
                     }`}
+                    aria-pressed={categoryFilter === 'whiskey'}
                     onClick={() => setCategoryFilter('whiskey')}
                   >
                     Whiskey
                   </button>
                   <button
+                    type="button"
                     className={`cat-btn ${
                       categoryFilter === 'rom' ? 'active' : ''
                     }`}
+                    aria-pressed={categoryFilter === 'rom'}
                     onClick={() => setCategoryFilter('rom')}
                   >
                     Rom
                   </button>
                 </div>
+
+                <div className="search-wrap">
+                  <input
+                    type="text"
+                    placeholder="Sök dryck..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                  {search && (
+                    <button
+                      type="button"
+                      className="search-clear-btn"
+                      onClick={() => setSearch('')}
+                      aria-label="Rensa sökning"
+                    >
+                      ✕
+                    </button>
+                  )}
+                  <span className="search-icon">🔍</span>
+                </div>
+
+                <button
+                  type="button"
+                  className={`filter-btn ${showFilter ? 'active' : ''}`}
+                  onClick={() => setShowFilter(!showFilter)}
+                  aria-expanded={showFilter}
+                  aria-controls="dryck-filter-panel"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                  </svg>
+                  Filter{' '}
+                  {selectedTags.length > 0 && `(${selectedTags.length})`}
+                </button>
               </div>
 
-              <div className="search-wrap">
-                <input
-                  type="text"
-                  placeholder="Sök dryck..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-                <span className="search-icon">🔍</span>
-              </div>
-
-              <button
-                className="clear-filter-btn"
-                onClick={() => setSelectedTags([])}
-                disabled={selectedTags.length === 0}
-              >
-                Rensa alla filter
-              </button>
-
+              {(search.trim() || selectedTags.length > 0) && (
+                <div className="active-filters-row" aria-label="Aktiva filter">
+                  <span className="active-filters-label">Aktiva filter:</span>
+                  {search.trim() && (
+                    <button
+                      className="active-filter-chip"
+                      onClick={() => setSearch('')}
+                    >
+                      &ldquo;{search.trim()}&rdquo;{' '}
+                      <span aria-hidden="true">✕</span>
+                    </button>
+                  )}
+                  {selectedTags.map((tag) => (
+                    <button
+                      key={tag}
+                      className="active-filter-chip"
+                      onClick={() => toggleTag(tag)}
+                    >
+                      {tag} <span aria-hidden="true">✕</span>
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className="clear-filter-btn"
+                    onClick={() => {
+                      setSelectedTags([])
+                      setSearch('')
+                    }}
+                  >
+                    Rensa alla filter
+                  </button>
+                </div>
+              )}
             </div>
 
             <div
+              id="dryck-filter-panel"
               className={`filter-tags-container ${showFilter ? 'open' : ''}`}
+              aria-hidden={!showFilter}
+              inert={!showFilter}
             >
-              {Object.entries(allTags).map(([category, tags]) => {
-                if (tags.length === 0) return null
+              {FILTER_CATEGORY_ORDER.map((category) => {
+                const tags = allTags[category]
+                if (!tags || tags.length === 0) return null
                 return (
                   <div key={category} className="filter-category-group">
-                    <h4 className="filter-category-title">{category}</h4>
+                    <h2 className="filter-category-title">
+                      {category}
+                      <span className="filter-category-count">
+                        {tags.length}
+                      </span>
+                    </h2>
                     <div className="tags-wrapper">
                       {tags.map((tag) => (
                         <button
+                          type="button"
                           key={tag}
                           className={`filter-tag ${
                             selectedTags.includes(tag) ? 'active' : ''
                           }`}
                           onClick={() => toggleTag(tag)}
+                          aria-pressed={selectedTags.includes(tag)}
                         >
                           {tag}
                         </button>
@@ -415,8 +565,28 @@ export default function App() {
                   </div>
                 )
               })}
-              <div className="filter-actions-row"></div>
             </div>
+
+            {categoryFilter === 'whiskey' && (
+              <h2 className="dryck-cat-title">
+                Whiskey <span className="dryck-cat-count">{whiskey.length}</span>
+                {isFiltered && (
+                  <span className="dryck-cat-filtered">
+                    Visar {filteredWhiskey.length}
+                  </span>
+                )}
+              </h2>
+            )}
+            {categoryFilter === 'rom' && (
+              <h2 className="dryck-cat-title">
+                Rom <span className="dryck-cat-count">{rums.length}</span>
+                {isFiltered && (
+                  <span className="dryck-cat-filtered">
+                    Visar {filteredRums.length}
+                  </span>
+                )}
+              </h2>
+            )}
 
             <div
               className={`dryck-container-flex view-mode-list ${
@@ -426,13 +596,23 @@ export default function App() {
               {categoryFilter === 'all' && (
                 <>
                   <div className="dryck-column">
-                    <h2
+                    <h2 className="dryck-category-heading"><button type="button"
                       className={`dryck-cat-title ${whiskeyOpen ? 'open' : ''} collapsible`}
                       onClick={() => setWhiskeyOpen(!whiskeyOpen)}
+                      aria-expanded={whiskeyOpen}
                     >
-                      Whiskey ({filteredWhiskey.length})
-                    </h2>
+                      Whiskey{' '}
+                      <span className="dryck-cat-count">
+                        {whiskey.length}
+                      </span>
+                      {isFiltered && (
+                        <span className="dryck-cat-filtered">
+                          Visar {filteredWhiskey.length}
+                        </span>
+                      )}
+                    </button></h2>
                     <div
+                      inert={!whiskeyOpen}
                       className={`dryck-column-content ${whiskeyOpen ? 'open' : 'closed'}`}
                     >
                       <ul className="dryck-list">
@@ -443,13 +623,21 @@ export default function App() {
                     </div>
                   </div>
                   <div className="dryck-column">
-                    <h2
+                    <h2 className="dryck-category-heading"><button type="button"
                       className={`dryck-cat-title ${rumOpen ? 'open' : ''} collapsible`}
                       onClick={() => setRumOpen(!rumOpen)}
+                      aria-expanded={rumOpen}
                     >
-                      Rom ({filteredRums.length})
-                    </h2>
+                      Rom{' '}
+                      <span className="dryck-cat-count">{rums.length}</span>
+                      {isFiltered && (
+                        <span className="dryck-cat-filtered">
+                          Visar {filteredRums.length}
+                        </span>
+                      )}
+                    </button></h2>
                     <div
+                      inert={!rumOpen}
                       className={`dryck-column-content ${rumOpen ? 'open' : 'closed'}`}
                     >
                       <ul className="dryck-list">
@@ -469,9 +657,6 @@ export default function App() {
                       filteredWhiskey.length > 1 ? 'has-continuation' : ''
                     }`}
                   >
-                    <h2 className="dryck-cat-title">
-                      Whiskey ({filteredWhiskey.length})
-                    </h2>
                     <ul className="dryck-list">
                       {filteredWhiskey
                         .slice(0, Math.ceil(filteredWhiskey.length / 2))
@@ -481,13 +666,6 @@ export default function App() {
                     </ul>
                   </div>
                   <div className="dryck-column">
-                    {/* Keep spacing aligned with hidden header */}
-                    <h2
-                      className="dryck-cat-title dryck-cat-title-spacer"
-                      style={{ visibility: 'hidden' }}
-                    >
-                      Whiskey ({filteredWhiskey.length})
-                    </h2>
                     <ul className="dryck-list">
                       {filteredWhiskey
                         .slice(Math.ceil(filteredWhiskey.length / 2))
@@ -506,9 +684,6 @@ export default function App() {
                       filteredRums.length > 1 ? 'has-continuation' : ''
                     }`}
                   >
-                    <h2 className="dryck-cat-title">
-                      Rom ({filteredRums.length})
-                    </h2>
                     <ul className="dryck-list">
                       {filteredRums
                         .slice(0, Math.ceil(filteredRums.length / 2))
@@ -518,12 +693,6 @@ export default function App() {
                     </ul>
                   </div>
                   <div className="dryck-column">
-                    <h2
-                      className="dryck-cat-title dryck-cat-title-spacer"
-                      style={{ visibility: 'hidden' }}
-                    >
-                      Rom ({filteredRums.length})
-                    </h2>
                     <ul className="dryck-list">
                       {filteredRums
                         .slice(Math.ceil(filteredRums.length / 2))
@@ -538,6 +707,8 @@ export default function App() {
           </div>
         </div>
       </section>
+      </main>
+      <Footer />
     </div>
   )
 }

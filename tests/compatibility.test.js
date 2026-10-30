@@ -9,7 +9,7 @@ const source = readFileSync(new URL('../src/pages/Dryck.jsx', import.meta.url), 
 const helpers = source.slice(source.indexOf('function getItemSearchString'), source.indexOf('export default function'))
 const filtering = source.slice(source.indexOf('  const matchTags ='), source.indexOf('\n  return (', source.indexOf('  const filteredRums =')))
 function filter(whiskey, rums, search='', selectedTags=[]) {
-  return runInNewContext(`${helpers}\n${filtering}\n;({whiskey:filteredWhiskey,rums:filteredRums})`, {whiskey,rums,search,selectedTags,useMemo:fn=>fn()})
+  return runInNewContext(`${helpers}\n${filtering}\n;({whiskey:filteredWhiskey,rums:filteredRums})`, {whiskey,rums,search,selectedTags,useMemo:fn=>fn(),useCallback:fn=>fn})
 }
 const bottle = {id:'a',namn:'Lagavulin 16',ålder:'16 år',procent:'43 %',fat:'Bourbon & sherry',rökighet:'Hög',destilleri:'Lagavulin',region:'Islay',land:'Skottland',stil:'Single malt',fritext:'Rök och havssälta',pris:36}
 

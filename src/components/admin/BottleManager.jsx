@@ -1,3 +1,4 @@
+import LoadError from '../LoadError'
 import React, { useState, useEffect } from 'react'
 import { deleteTenantItem, getBottles, saveBottles } from '../../utils/dataProvider'
 import { Plus, Search, Edit2, Trash2, X, Eye } from 'lucide-react'
@@ -78,6 +79,7 @@ function buildFormData(item = {}) {
 }
 
 export default function BottleManager() {
+  const [loadState, setLoadState] = useState('loading')
   const [data, setData] = useState({ whiskey: [], rums: [] })
   const [activeTab, setActiveTab] = useState('whiskey')
   const [searchTerm, setSearchTerm] = useState('')
@@ -101,8 +103,9 @@ export default function BottleManager() {
     try {
       const loaded = await getBottles({ activeOnly: false, admin: true })
       setData(loaded)
+      setLoadState('ready')
     } catch (_err) {
-      setData({ whiskey: [], rums: [] })
+      setLoadState('error')
     }
   }
 
@@ -230,6 +233,8 @@ export default function BottleManager() {
     }
   }
 
+  if (loadState !== 'ready') return loadState === 'error' ? <LoadError /> : <p role="status">Laddar…</p>
+
   return (
     <div className="admin-content-area max-width-container">
       <div className="admin-page-header layout-row-between">
@@ -294,7 +299,7 @@ export default function BottleManager() {
               onClick={() => toggleExpand(item.id)}
             >
               <div className="bottle-summary">
-                <h3 className="margin-none font-title">{item.namn}</h3>
+                <h2 className="margin-none font-title">{item.namn}</h2>
                 <div className="bottle-summary-meta text-color-muted font-small">
                   {summaryMetadata}
                 </div>
@@ -372,7 +377,7 @@ export default function BottleManager() {
               )}
 
               <div className="card-actions-bottom">
-                <button
+                <button aria-label="Förhandsgrandska"
                   type="button"
                   className="btn-icon"
                   onClick={(e) => {
@@ -383,7 +388,7 @@ export default function BottleManager() {
                 >
                   <Eye size={18} />
                 </button>
-                <button
+                <button aria-label="Redigera"
                   type="button"
                   className="btn-icon"
                   onClick={(e) => openEditModal(e, item)}
@@ -391,7 +396,7 @@ export default function BottleManager() {
                 >
                   <Edit2 size={18} />
                 </button>
-                <button
+                <button aria-label="Ta bort"
                   type="button"
                   className="btn-icon text-alert"
                   onClick={(e) => handleDelete(e, item.id)}
@@ -422,7 +427,7 @@ export default function BottleManager() {
                 {hasEditingId ? 'Redigera Flaska' : 'Lägg till Flaska'} (
                 {activeTab === 'whiskey' ? 'Whiskey' : 'Rom'})
               </h2>
-              <button
+              <button aria-label="Stäng"
                 type="button"
                 className="btn-icon text-alert"
                 onClick={() => setIsModalOpen(false)}
@@ -433,8 +438,8 @@ export default function BottleManager() {
 
             <form onSubmit={handleSubmit} className="grid-form-2">
               <div className="form-group">
-                <label className="form-label">Destilleri</label>
-                <input
+                <label className="form-label" htmlFor="bottlemanager-field-1">Destilleri</label>
+                <input id="bottlemanager-field-1"
                   className="form-control"
                   value={formData.destilleri}
                   onChange={(e) =>
@@ -444,8 +449,8 @@ export default function BottleManager() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Serie</label>
-                <input
+                <label className="form-label" htmlFor="bottlemanager-field-2">Serie</label>
+                <input id="bottlemanager-field-2"
                   className="form-control"
                   value={formData.serie}
                   onChange={(e) =>
@@ -455,8 +460,8 @@ export default function BottleManager() {
               </div>
 
               <div className="form-group span-2">
-                <label className="form-label">Flaska</label>
-                <input
+                <label className="form-label" htmlFor="bottlemanager-field-3">Flaska</label>
+                <input id="bottlemanager-field-3"
                   className="form-control"
                   value={formData.flaska}
                   onChange={(e) =>
@@ -466,8 +471,8 @@ export default function BottleManager() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Pris (kr/cl) *</label>
-                <input
+                <label className="form-label" htmlFor="bottlemanager-field-4">Pris (kr/cl) *</label>
+                <input id="bottlemanager-field-4"
                   type="number"
                   required
                   className="form-control"
@@ -479,8 +484,8 @@ export default function BottleManager() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Antal på lager</label>
-                <input
+                <label className="form-label" htmlFor="bottlemanager-field-5">Antal på lager</label>
+                <input id="bottlemanager-field-5"
                   type="number"
                   min="0"
                   step="1"
@@ -496,8 +501,8 @@ export default function BottleManager() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Ålder</label>
-                <input
+                <label className="form-label" htmlFor="bottlemanager-field-6">Ålder</label>
+                <input id="bottlemanager-field-6"
                   className="form-control"
                   placeholder="t.ex. 12 år"
                   value={formData.ålder}
@@ -508,8 +513,8 @@ export default function BottleManager() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Procent (ABV)</label>
-                <input
+                <label className="form-label" htmlFor="bottlemanager-field-7">Procent (ABV)</label>
+                <input id="bottlemanager-field-7"
                   className="form-control"
                   placeholder="t.ex. 40 %vol"
                   value={formData.procent}
@@ -520,8 +525,8 @@ export default function BottleManager() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Fat (Cask)</label>
-                <input
+                <label className="form-label" htmlFor="bottlemanager-field-8">Fat (Cask)</label>
+                <input id="bottlemanager-field-8"
                   className="form-control"
                   value={formData.fat}
                   onChange={(e) =>
@@ -531,8 +536,8 @@ export default function BottleManager() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Rökighet</label>
-                <input
+                <label className="form-label" htmlFor="bottlemanager-field-9">Rökighet</label>
+                <input id="bottlemanager-field-9"
                   className="form-control"
                   value={formData.rökighet}
                   onChange={(e) =>
@@ -542,8 +547,8 @@ export default function BottleManager() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Region</label>
-                <input
+                <label className="form-label" htmlFor="bottlemanager-field-10">Region</label>
+                <input id="bottlemanager-field-10"
                   className="form-control"
                   value={formData.region}
                   onChange={(e) =>
@@ -553,8 +558,8 @@ export default function BottleManager() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Land</label>
-                <input
+                <label className="form-label" htmlFor="bottlemanager-field-11">Land</label>
+                <input id="bottlemanager-field-11"
                   className="form-control"
                   value={formData.land}
                   onChange={(e) =>
@@ -564,8 +569,8 @@ export default function BottleManager() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Stil</label>
-                <input
+                <label className="form-label" htmlFor="bottlemanager-field-12">Stil</label>
+                <input id="bottlemanager-field-12"
                   className="form-control"
                   value={formData.stil}
                   onChange={(e) =>
@@ -575,8 +580,8 @@ export default function BottleManager() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Buteljerad (år)</label>
-                <input
+                <label className="form-label" htmlFor="bottlemanager-field-13">Buteljerad (år)</label>
+                <input id="bottlemanager-field-13"
                   type="number"
                   className="form-control"
                   value={formData.buteljerad}
@@ -587,8 +592,8 @@ export default function BottleManager() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Buteljerare</label>
-                <input
+                <label className="form-label" htmlFor="bottlemanager-field-14">Buteljerare</label>
+                <input id="bottlemanager-field-14"
                   className="form-control"
                   value={formData.buteljerare}
                   onChange={(e) =>
@@ -598,8 +603,8 @@ export default function BottleManager() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Fritext</label>
-                <input
+                <label className="form-label" htmlFor="bottlemanager-field-15">Fritext</label>
+                <input id="bottlemanager-field-15"
                   className="form-control"
                   value={formData.fritext}
                   onChange={(e) =>

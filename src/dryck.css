@@ -2,7 +2,7 @@
   position: relative;
   min-height: 100vh;
   color: #fff;
-  /* Background image omitted in the local demo. */
+  /* Background photo omitted for the local demo. */
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
@@ -19,14 +19,14 @@
 
 .dryck-content-wrapper {
   /* Keep spacing inside this section to avoid top-margin collapse through wrappers. */
-  padding-top: 7.65rem;
+  padding-top: calc(var(--site-header-height) + var(--space-3));
   padding-bottom: 5.65rem;
 }
 
 .dryck-content-container {
-  max-width: 1100px;
+  max-width: var(--container-wide);
   margin: 0 auto;
-  padding: 24px 20px 60px 20px;
+  padding: 44px 20px 60px 20px;
   position: relative;
   z-index: 2;
   background-color: #0d0d0d;
@@ -34,141 +34,248 @@
   box-shadow: 0 6px 32px 0 rgba(0, 0, 0, 0.18);
 }
 
+/* Compact intro above the catalogue — gives website visitors context;
+   guests arriving via #catalogue (e.g. a QR code) skip straight past
+   it to the tabs/search below. Vertical rhythm tightens as it goes:
+   heading→text loosest, text→button a bit tighter, button→catalogue
+   tightest, so the catalogue reads as a continuation of the intro
+   rather than a separate section. */
+.dryck-intro {
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto 22px auto;
+}
+
+.dryck-intro h1 {
+  color: var(--CTA_Color);
+  font-family: 'Playfair Display', serif;
+  font-size: 2rem;
+  font-weight: 400;
+  margin-bottom: 14px;
+}
+
+.dryck-intro p {
+  font-size: 1.05rem;
+  line-height: 1.6;
+  margin-bottom: 34px;
+}
+
+.dryck-intro .btn {
+  margin-top: 0;
+}
+
+.dryck-intro .btn:not(.CTA_btn) {
+  /* Match the card's own background (#0d0d0d) instead of the .btn
+     default pure black — avoids a visible seam around the button. */
+  background-color: #0d0d0d;
+}
+
 .dryck-top-bar {
-  display: grid;
-  grid-template-areas:
-    'filters search clear'
-    'boka    boka   boka';
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  column-gap: 12px;
-  row-gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   position: sticky;
-  top: 36px;
+  top: calc(var(--site-header-height) + var(--space-1));
   background: linear-gradient(
     to top,
     rgba(13, 13, 13, 0) 0%,
     #0d0d0d 12%,
     #0d0d0d 100%
   );
-  padding: 42px 0px;
-  z-index: 999999999;
+  padding: 28px 0px 48px 0px;
+  z-index: 50;
 }
 
-.dryck-top-bar .controls-left {
-  grid-area: filters;
+.dryck-top-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
-.dryck-top-bar .search-wrap {
-  grid-area: search;
+/* Browse row: category, search and the Filter toggle together —
+   Filter anchors the far end of the row again, so search can flex
+   between the two without ballooning on wide screens. */
+.dryck-browse-row .search-wrap {
+  flex: 1 1 200px;
+  max-width: 560px;
 }
 
-.dryck-top-bar .clear-filter-btn {
-  grid-area: clear;
+.dryck-browse-row .filter-btn {
+  flex: 0 0 auto;
 }
 
-.dryck-top-bar .btn {
-  grid-area: boka;
-  margin-top: 0;
-  justify-self: start;
+/* Shows what's currently narrowing the list, without having to
+   reopen the filter panel to check or remove a single choice. A
+   thin divider separates it from the browse row above. */
+.active-filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-top: 1px solid #222;
+  padding-top: 14px;
+  width: 100%;
 }
 
-.filter-category-title {
-  color: #ca9e72;
+.active-filters-label {
+  color: var(--CTA_Color);
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
+  font-size: 0.85rem;
 }
 
-.filter-btn {
-  background-color: #ca9e72;
+.active-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: rgba(202, 159, 114, 0.14);
+  border: 1px solid var(--CTA_Color);
+  color: var(--CTA_Color);
+  border-radius: 20px;
+  padding: 6px 12px 6px 16px;
+  min-height: 32px;
+  font-family: 'Playfair Display', serif;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.active-filter-chip:hover {
+  background-color: var(--CTA_Color);
   color: #000;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  padding: 10px 20px;
-  min-height: 44px;
+}
+
+.active-filter-chip span {
+  font-size: 0.7rem;
+  opacity: 0.75;
+}
+
+.filter-category-group {
+  border-bottom: 1px solid #222;
+}
+
+.filter-category-group:last-child {
+  border-bottom: none;
+}
+
+/* Plain section label now — no accordion, so no chevron/pointer. */
+.filter-category-title {
+  color: var(--CTA_Color);
+  margin: 0;
+  padding: 12px 2px 2px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.filter-category-count {
+  color: rgba(255, 255, 255, 0.46);
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+}
+
+/* Outline at rest, filled only once the panel is actually open —
+   matches how .filter-tag.active and .cat-btn.active already work.
+   Sits at the end of the browse row now, so it anchors the search
+   field's width the way the old Boka button used to. */
+.filter-btn {
+  background-color: transparent;
+  color: var(--CTA_Color);
+  border: 1px solid var(--CTA_Color);
+  border-radius: 11px;
+  padding: 0 22px;
+  min-height: 48px;
   font-family: inherit;
   font-weight: 500;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.95rem;
+  gap: 9px;
+  font-size: 1.05rem;
   transition: all 0.3s ease;
 }
-.filter-btn:hover,
-.filter-btn.active {
-  background-color: #000;
-  color: #ca9e72;
-  border-color: #ca9e72;
+
+.filter-btn svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
+.filter-btn:hover:not(.active) {
+  background-color: rgba(202, 159, 114, 0.12);
+}
+
+.filter-btn.active {
+  background-color: var(--CTA_Color);
+  color: #000;
+  border-color: var(--CTA_Color);
+  font-weight: 700;
+}
+
+/* A single flat, always-scrollable list — no per-category accordion.
+   All facets and their tags render at once; the panel itself is
+   capped at a short fixed height with its own scrollbar so a facet
+   with many options (e.g. Destilleri) never pushes the catalogue
+   down or hides the active-filters/result-count context above it.
+   Border/background only live on .open so a closed panel renders
+   nothing (no stray hairline from a 0-height bordered box). */
 .filter-tags-container {
   max-height: 0;
   overflow: hidden;
+  opacity: 0;
   transition:
-    max-height 0.4s ease,
-    margin-bottom 0.4s ease;
+    max-height 0.35s ease,
+    opacity 0.25s ease,
+    margin-bottom 0.35s ease;
 }
 .filter-tags-container.open {
-  max-height: 300px;
-  margin-bottom: 30px;
-  overflow-y: scroll;
+  max-height: min(260px, 50vh);
+  overflow-y: auto;
+  opacity: 1;
+  margin-bottom: 20px;
+  padding: 10px 18px 14px;
+  background-color: #0d0d0d;
+  border: 1px solid #222;
+  border-radius: 14px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(202, 159, 114, 0.35) transparent;
 }
-
-/* Custom Scrollbar for Filter Tags */
 .filter-tags-container.open::-webkit-scrollbar {
-  width: 8px; /* Width of the vertical scrollbar */
+  width: 8px;
 }
-
 .filter-tags-container.open::-webkit-scrollbar-track {
-  background: #111; /* Color of the track */
+  background: transparent;
 }
-
 .filter-tags-container.open::-webkit-scrollbar-thumb {
-  background-color: #333; /* Color of the handle */
-  border-radius: 4px; /* Roundness of the handle */
-  border: 2px solid #111; /* Padding around handle */
+  background-color: rgba(202, 159, 114, 0.35);
+  border-radius: 8px;
 }
 
-.filter-scroll-hint {
-  text-align: center;
-  color: #666;
-  font-size: 0.8rem;
-  margin-top: 10px;
-  font-style: italic;
-  font-family: 'Playfair Display', serif;
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  padding-right: 14px;
-}
-
+/* Only ever rendered inside .active-filters-row, i.e. only when
+   there's something to clear — no disabled state needed. */
 .clear-filter-btn {
-  background-color: transparent;
+  background: none;
+  border: none;
   color: #888;
-  border: 1px solid #333;
-  border-radius: 4px;
-  padding: 8px 16px;
-  min-height: 44px;
+  padding: 4px 0;
   font-family: inherit;
   font-weight: 500;
   cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.3s ease;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: all 0.2s ease;
 }
 
-.clear-filter-btn:hover:not(:disabled) {
-  background-color: #ca9e72;
-  color: #000;
-  border-color: #ca9e72;
-}
-
-.clear-filter-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  border-color: #222;
-  color: #444;
+.clear-filter-btn:hover {
+  color: var(--CTA_Color);
+  text-decoration-color: var(--CTA_Color);
 }
 
 .tags-wrapper {
@@ -192,14 +299,14 @@
 }
 
 .filter-tag:hover {
-  border-color: #ca9e72;
+  border-color: var(--CTA_Color);
   color: #fff;
 }
 
 .filter-tag.active {
-  background-color: #ca9e72;
+  background-color: var(--CTA_Color);
   color: #000;
-  border-color: #ca9e72;
+  border-color: var(--CTA_Color);
   font-weight: 500;
 }
 
@@ -208,10 +315,10 @@
   align-items: center;
   background-color: #111;
   border: 1px solid #333;
-  min-height: 44px;
-  padding: 0 14px;
-  border-radius: 4px;
-  width: 280px;
+  min-height: 48px;
+  padding: 0 15px;
+  border-radius: 11px;
+  width: 308px;
   box-sizing: border-box;
 }
 
@@ -220,16 +327,32 @@
   border: none;
   color: #bbb;
   width: 100%;
-  min-height: 44px;
+  min-height: 48px;
   outline: none;
   font-family: inherit;
-  font-size: 0.95rem;
+  font-size: 1.05rem;
 }
 
 .search-icon {
-  font-size: 0.85rem;
+  font-size: 0.94rem;
   opacity: 0.5;
-  color: #ca9e72;
+  color: var(--CTA_Color);
+}
+
+.search-clear-btn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 0.88rem;
+  line-height: 1;
+  padding: 4px;
+  margin-right: 2px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.search-clear-btn:hover {
+  color: var(--CTA_Color);
 }
 
 .dryck-container-flex {
@@ -250,6 +373,7 @@
 @media (max-width: 800px) {
   .dryck-container-flex {
     flex-direction: column;
+    align-items: stretch;
     gap: 20px;
     align-content: center;
   }
@@ -268,35 +392,72 @@
 }
 
 .dryck-column h2.dryck-cat-title {
-  color: #ca9e72;
+  color: var(--CTA_Color);
   font-family: 'Playfair Display', serif;
   font-size: 1.8rem;
-  margin-bottom: 30px;
+  margin-bottom: 16px;
   font-weight: 400;
   border-bottom: none;
   padding-bottom: 0;
   transition: color 0.2s;
 }
 
+/* Same quiet, no-parentheses treatment as .filter-category-count,
+   but thinner and smaller so it reads as a subtle detail next to
+   the category name rather than a second heading. */
+.dryck-cat-count {
+  color: rgba(255, 255, 255, 0.5);
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  font-weight: 300;
+  letter-spacing: 0.02em;
+}
+
+/* Shown next to .dryck-cat-count only while a search/tag filter is
+   active. Keeps the total inventory count intact and states the
+   filtered count once, instead of repeating the total a second time
+   (e.g. "52 · Visar 2", not "52 · 2 av 52"). */
+.dryck-cat-filtered {
+  color: var(--CTA_Color);
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  margin-left: 2px;
+  opacity: 0.9;
+}
+
+.dryck-cat-filtered::before {
+  content: '·';
+  margin-right: 6px;
+  color: #555;
+}
+
 .dryck-cat-title.collapsible {
   cursor: pointer;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 10px;
 }
 
 .dryck-cat-title.collapsible:hover {
   color: #fff;
 }
 
+/* Same quiet chevron as the filter accordion, for consistency. */
 .dryck-cat-title.collapsible::after {
-  content: '+';
-  font-size: 1.5rem;
-  font-weight: 300;
+  content: '';
+  margin-left: auto;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid #888;
+  border-bottom: 1.5px solid #888;
+  transform: rotate(45deg);
+  transition: transform 0.25s ease;
 }
 
 .dryck-cat-title.collapsible.open::after {
-  content: '-';
+  transform: rotate(225deg);
 }
 
 .dryck-column-content {
@@ -309,7 +470,8 @@
 }
 
 .dryck-column-content.open {
-  max-height: 5000px; /* arbitrary large height */
+  max-height: none;
+  overflow: visible;
 }
 
 .dryck-list {
@@ -337,7 +499,7 @@
 }
 
 .dryck-name {
-  color: #ca9e72;
+  color: var(--CTA_Color);
   font-size: 1.25rem;
   font-weight: 400;
   font-family: 'Playfair Display', serif;
@@ -346,12 +508,13 @@
 }
 
 .dryck-meta {
-  color: #888;
+  color: rgba(255, 255, 255, 0.58);
   font-size: 0.9rem;
   font-family: 'Playfair Display', serif;
   font-style: italic;
-  opacity: 0.8;
+  opacity: 1;
   letter-spacing: 0.02em;
+  line-height: 1.45;
 }
 
 .dryck-info-right {
@@ -360,19 +523,24 @@
   padding-top: 6px;
 }
 
-.dryck-more-link {
-  color: #ca9e72;
-  font-size: 0.9rem;
-  font-family: 'Playfair Display', serif;
-  font-weight: 400;
-  text-decoration: none;
-  white-space: nowrap;
-  transition: opacity 0.1s ease-out;
-  cursor: pointer;
-  will-change: opacity;
+/* Same quiet chevron language as the column/filter accordions,
+   just sized down to sit comfortably next to a single row. */
+.dryck-more-chevron {
+  width: 8px;
+  height: 8px;
+  border-right: 1.5px solid rgba(255, 255, 255, 0.46);
+  border-bottom: 1.5px solid rgba(255, 255, 255, 0.46);
+  transform: rotate(45deg);
+  transition:
+    transform 0.25s ease,
+    border-color 0.2s ease;
+  flex-shrink: 0;
 }
-.dryck-more-link:hover {
-  opacity: 0.7;
+.dryck-more-chevron.open {
+  transform: rotate(225deg);
+}
+.dryck-item-header:hover .dryck-more-chevron {
+  border-color: var(--CTA_Color);
 }
 
 .dryck-details-panel {
@@ -398,7 +566,7 @@
 .dryck-details-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px 24px;
+  gap: 22px;
   font-size: 0.9rem;
 }
 
@@ -407,23 +575,13 @@
   flex-direction: column;
 }
 
-.detail-region-land {
-  grid-column: 1;
-}
-
-.detail-bottled-year,
-.detail-bottler,
-.detail-more-info {
-  grid-column: 2;
-}
-
 .detail-label {
-  color: #666;
+  color: rgba(255, 255, 255, 0.46);
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 4px;
-  font-family: sans-serif;
+  margin-bottom: 6px;
+  font-family: var(--font-ui);
 }
 
 .detail-value {
@@ -433,37 +591,31 @@
 
 /* --- New Controls Styles --- */
 
-.controls-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
 /* Category Toggles (Pill style, joined) */
 .category-toggles {
   display: flex;
   background: #111;
   border: 1px solid #333;
-  border-radius: 4px;
+  border-radius: 11px;
   overflow: hidden;
 }
 .cat-btn {
   background: transparent;
   border: none;
   color: #888;
-  padding: 8px 16px;
-  min-height: 44px;
+  padding: 9px 18px;
+  min-height: 48px;
   cursor: pointer;
   border-right: 1px solid #333;
   font-family: inherit;
-  font-size: 0.9rem;
+  font-size: 0.99rem;
   transition: all 0.2s;
 }
 .cat-btn:last-child {
   border-right: none;
 }
 .cat-btn.active {
-  background: #ca9e72;
+  background: var(--CTA_Color);
   color: #000;
   font-weight: 500;
 }
@@ -502,7 +654,7 @@
   stroke-width: 2px;
 }
 .view-btn.active {
-  background: #ca9e72;
+  background: var(--CTA_Color);
   color: #000;
 }
 .view-btn:hover:not(.active) {
@@ -543,14 +695,10 @@
 .view-mode-list .dryck-info-right {
   padding-top: 0;
 }
-.view-mode-list .dryck-more-link {
-  font-size: 0.8rem;
-  color: #666;
-}
 /* Adjust details panel slightly in list mode */
 .view-mode-list .dryck-details-panel {
-  margin-top: 8px;
-  padding: 12px;
+  margin-top: 16px;
+  padding: 24px;
   background: #111;
   border: none;
   border-top: 1px solid #222;
@@ -560,7 +708,7 @@
 @media (max-width: 900px) {
   .dryck-top-bar {
     padding: 24px 0;
-    column-gap: 10px;
+    gap: 10px;
   }
 }
 @media (max-width: 800px) {
@@ -568,7 +716,7 @@
     min-height: auto;
   }
   .dryck-content-wrapper {
-    padding-top: 3.5rem;
+    padding-top: var(--site-header-height);
     padding-bottom: 2.25rem;
   }
   .dryck-content-container {
@@ -581,40 +729,60 @@
     padding: 8px 0;
     top: 0;
     position: relative;
-    column-gap: 8px;
-    row-gap: 8px;
+    gap: 8px;
     overflow: hidden;
   }
-  .dryck-top-bar .search-wrap {
+  .dryck-top-row {
+    gap: 8px;
+  }
+  /* Category toggle gets its own full-width row (so the two even
+     buttons read as centered), search + Filter share the row below
+     instead of the three controls wrapping unevenly. */
+  .dryck-browse-row .category-toggles {
+    flex: 1 1 100%;
+  }
+  .dryck-browse-row .search-wrap {
+    /* Base rule pins this to a fixed 308px, which alone is wider
+       than the mobile content area — override so it shrinks and
+       shares the row with Filter instead of forcing it to wrap. */
     width: auto;
-    min-width: 0;
+    min-width: 140px;
+    flex: 1 1 auto;
   }
-  .dryck-top-bar .controls-left {
-    gap: 6px;
-  }
-  .filter-btn,
   .cat-btn,
-  .clear-filter-btn,
-  .filter-tag {
-    min-height: 36px;
-    font-size: 0.82rem;
-  }
+  .filter-tag,
   .filter-btn {
-    padding: 7px 12px;
+    min-height: 44px;
+    font-size: 0.85rem;
+  }
+  .clear-filter-btn {
+    font-size: 0.82rem;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
   }
   .cat-btn {
-    padding: 7px 12px;
+    padding: 10px 14px;
+  }
+  /* 'Alla' isn't rendered on mobile, so the remaining Whiskey/Rom
+     pair splits the row evenly instead of hugging its own text
+     width like the 3-button desktop row does. */
+  .category-toggles .cat-btn {
+    flex: 1;
+    text-align: center;
+  }
+  .filter-btn {
+    padding: 0 16px;
   }
   .search-wrap {
-    min-height: 36px;
-    padding: 0 8px;
+    min-height: 44px;
+    padding: 0 12px;
   }
   .search-wrap input {
-    min-height: 36px;
+    min-height: 44px;
     font-size: 1rem;
   }
   .clear-filter-btn {
-    padding: 7px 10px;
     white-space: nowrap;
   }
   .dryck-top-bar .btn {
@@ -622,11 +790,12 @@
     font-size: 0.88rem;
   }
   .filter-tags-container.open {
-    max-height: 210px;
+    max-height: min(240px, 45vh);
     margin-bottom: 14px;
+    padding: 8px 12px 10px;
   }
   .filter-category-title {
-    margin: 8px 0 6px;
+    padding: 10px 2px 2px;
     font-size: 1rem;
   }
   .tags-wrapper {
@@ -637,26 +806,16 @@
     margin-bottom: 8px;
     font-size: 1.22rem;
   }
-  .dryck-cat-title.collapsible::after {
-    font-size: 1.2rem;
-  }
   .dryck-item-header,
   .view-mode-list .dryck-item-header {
-    flex-direction: column;
     align-items: flex-start;
     gap: 6px;
   }
   .dryck-info-left {
-    padding-right: 0;
+    padding-right: 12px;
   }
   .dryck-details-grid {
     grid-template-columns: 1fr;
-  }
-  .detail-region-land,
-  .detail-bottled-year,
-  .detail-bottler,
-  .detail-more-info {
-    grid-column: auto;
   }
   .view-mode-list .dryck-info-left {
     flex-direction: column;
@@ -667,7 +826,7 @@
   }
 }
 
-/* 520px: search expands on its row, clear moves down next to booking button */
+/* 520px: rows reflow naturally via flex-wrap, just tighten sizing */
 @media (max-width: 520px) {
   .dryck-content-wrapper {
     padding-top: 2rem;
@@ -675,64 +834,43 @@
   .dryck-content-container {
     padding: 10px 10px 18px 10px;
   }
-  .dryck-top-bar {
-    grid-template-areas:
-      'filters search'
-      'boka    clear';
-    grid-template-columns: auto 1fr;
-  }
-  .dryck-top-bar .search-wrap {
-    width: auto;
-    min-width: 0;
-  }
-  .filter-btn,
   .cat-btn,
-  .clear-filter-btn,
-  .filter-tag {
-    min-height: 34px;
+  .filter-tag,
+  .filter-btn {
+    min-height: 44px;
     font-size: 0.78rem;
   }
+  .clear-filter-btn {
+    font-size: 0.78rem;
+  }
+  .cat-btn {
+    padding: 10px 11px;
+  }
+  .filter-btn {
+    padding: 0 12px;
+  }
   .search-wrap {
-    min-height: 34px;
-    padding: 0 7px;
+    min-height: 44px;
+    padding: 0 10px;
   }
   .search-wrap input {
-    min-height: 34px;
+    min-height: 44px;
     font-size: 1rem;
   }
   .dryck-top-bar .btn {
     padding: 5px 10px;
     font-size: 0.84rem;
   }
-  .dryck-top-bar .clear-filter-btn {
-    justify-self: end;
-  }
   .dryck-column h2.dryck-cat-title {
     font-size: 1.1rem;
   }
 }
 
-/* 380px: filter row on top, search+clear on second row, booking on third */
 @media (max-width: 380px) {
   .dryck-content-wrapper {
     padding-top: 2rem;
   }
-  .dryck-top-bar {
-    grid-template-areas:
-      'filters filters'
-      'search  clear'
-      'boka    boka';
-    grid-template-columns: 1fr auto;
-  }
-  .dryck-top-bar .controls-left {
-    flex-wrap: wrap;
-  }
-  .dryck-top-bar .clear-filter-btn {
-    justify-self: auto;
-    align-self: center;
-  }
-  .dryck-top-bar .btn {
-    justify-self: stretch;
-    text-align: center;
-  }
 }
+
+.dryck-category-heading { margin: 0; }
+button.dryck-cat-title { width: 100%; border: 0; padding-inline: 0; background: transparent; text-align: left; font-family: inherit; }

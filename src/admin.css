@@ -140,8 +140,8 @@ main.admin-content-area {
 }
 
 .manager-card h3,
-h2,
-h1 {
+.manager-card h2,
+.manager-card h1 {
   color: #ca9e72;
   margin-bottom: 1rem;
 }
@@ -1195,6 +1195,9 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 /* --- Responsive Admin Layout --- */
 @media (max-width: 900px) {
   .admin-layout {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
     flex-direction: column;
   }
 
@@ -1215,6 +1218,9 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   }
 
   .admin-content-area {
+    flex: none;
+    width: 100%;
+    overflow: visible;
     padding: 20px;
     max-width: 100%;
   }
@@ -1332,3 +1338,6 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
     flex-direction: column;
   }
 }
+
+.menu-editor { border: 0; min-inline-size: 0; width: 100%; }
+.tenant-management-header { flex-wrap: wrap; gap: 12px; }
