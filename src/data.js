@@ -48,22 +48,3 @@ export function saveItems(items) {
   // Persist before updating UI so a quota/storage failure never looks like a successful save.
   localStorage.setItem(KEY, JSON.stringify(items));
 }
-export function publicItems(items) {
-  return items.filter(item => item.is_active).map(({ metadata, ...item }) => {
-    const { lagerantal: _privateStock, ...publicMetadata } = metadata;
-    return { ...item, metadata: publicMetadata };
-  });
-}
-export function matches(item, filters) {
-  const m = item.metadata;
-  const haystack = [item.name, item.description, ...fields.map(([key]) => m[key])].join(' ').toLocaleLowerCase('sv');
-  return (!filters.category || item.category === filters.category) &&
-    (!filters.region || (m.region || m.land) === filters.region) &&
-    (!filters.smoke || m.rokighet === filters.smoke) &&
-    (!filters.query || haystack.includes(filters.query.trim().toLocaleLowerCase('sv')));
-}
-export function sortItems(items, sort) {
-  return [...items].sort((a, b) => sort === 'price-up' ? Number(a.price_text) - Number(b.price_text) :
-    sort === 'price-down' ? Number(b.price_text) - Number(a.price_text) :
-    a.name.localeCompare(b.name, 'sv', { numeric: true, sensitivity: 'base' }));
-}
