@@ -1,7 +1,11 @@
 import LoadError from '../LoadError'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { deleteTenantItem, getBottles, saveBottles } from '../../utils/dataProvider'
-import { Plus, Search, Edit2, Trash2, X, Eye } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, Eye } from 'lucide-react'
+
+import Modal from '../Modal'
+import { Link, useSearchParams } from 'react-router-dom'
+import { matchesBottleSearch, bottleSummary, validateBottleForm, facetFields } from '../../utils/bottles'
 
 // Constants
 const INITIAL_FORM_STATE = {
@@ -28,11 +32,6 @@ function composeBottleName({ destilleri, serie, flaska }) {
     .map((value) => (value || '').toString().trim())
     .filter(Boolean)
     .join(' ')
-}
-
-function formatBottleAge(value) {
-  const age = (value || '').toString().trim()
-  return /^\d+(?:[.,]\d+)?$/.test(age) ? `${age} år` : age
 }
 
 function getLegacyBottlePart(item, destilleri, serie) {
@@ -79,9 +78,17 @@ function buildFormData(item = {}) {
 }
 
 export default function BottleManager() {
+  const [searchParams] = useSearchParams()
+  const initialTab = searchParams.get('category') === 'rom' ? 'rums' : 'whiskey'
+  const [message, setMessage] = useState('')
+  const [formError, setFormError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const savingRef = useRef(false)
+  const [confirmation, setConfirmation] = useState(null)
+  const initialForm = useRef(INITIAL_FORM_STATE)
   const [loadState, setLoadState] = useState('loading')
   const [data, setData] = useState({ whiskey: [], rums: [] })
-  const [activeTab, setActiveTab] = useState('whiskey')
+  const [activeTab, setActiveTab] = useState(initialTab)
   const [searchTerm, setSearchTerm] = useState('')
 
   // UI State
@@ -116,54 +123,60 @@ export default function BottleManager() {
       return true
     } catch (err) {
       console.error('Failed to save bottles', err)
-      window.alert('Kunde inte spara ändringen i databasen.')
+      setFormError('Kunde inte spara lokalt. Kontrollera att webbläsaren tillåter lagring och försök igen.')
       return false
     }
   }
 
   // Filter items based on search
   const currentItems = data[activeTab] || []
-  const filteredItems = currentItems.filter((item) => {
-    const term = searchTerm.toLowerCase()
-    return (
-      item.namn?.toLowerCase().includes(term) ||
-      item.destilleri?.toLowerCase().includes(term) ||
-      item.serie?.toLowerCase().includes(term) ||
-      item.flaska?.toLowerCase().includes(term) ||
-      item.buteljerad?.toString().toLowerCase().includes(term) ||
-      item.buteljerare?.toLowerCase().includes(term) ||
-      item.region?.toLowerCase().includes(term) ||
-      item.fat?.toLowerCase().includes(term) ||
-      item.fritext?.toLowerCase().includes(term)
-    )
-  })
+  const filteredItems = currentItems.filter(item => matchesBottleSearch(item, searchTerm))
 
   // CRUD Operations
   const handleDelete = async (e, id) => {
     e?.preventDefault?.()
     e?.stopPropagation?.()
-    if (!window.confirm('Är du säker på att du vill ta bort denna flaska?'))
-      return
+    const item = currentItems.find(item => item.id === id)
+    setConfirmation({ type: 'delete', id, name: item?.namn || 'flaskan' })
+  }
 
-    try {
-      await deleteTenantItem(id)
-      await loadData()
-    } catch (err) {
-      console.error('Failed to delete bottle', err)
-      window.alert('Kunde inte ta bort flaskan från databasen.')
+  const confirmAction = async () => {
+    if (confirmation.type === 'discard') {
+      setConfirmation(null)
+      setIsModalOpen(false)
+      return
     }
+    try {
+      await deleteTenantItem(confirmation.id)
+      await loadData()
+      setMessage(`${confirmation.name} har tagits bort.`)
+      setConfirmation(null)
+    } catch {
+      setMessage('Kunde inte ta bort flaskan. Försök igen.')
+      setConfirmation(null)
+    }
+  }
+
+  const requestClose = () => {
+    if (savingRef.current) return
+    if (JSON.stringify(formData) !== JSON.stringify(initialForm.current)) setConfirmation({ type: 'discard' })
+    else setIsModalOpen(false)
   }
 
   const openAddModal = () => {
     setEditingId(null)
-    setFormData(buildFormData())
+    initialForm.current = buildFormData()
+    setFormData(initialForm.current)
+    setFormError('')
     setIsModalOpen(true)
   }
 
   const openEditModal = (e, item) => {
     e.stopPropagation()
     setEditingId(item.id)
-    setFormData(buildFormData(item))
+    initialForm.current = buildFormData(item)
+    setFormData(initialForm.current)
+    setFormError('')
     setIsModalOpen(true)
   }
 
@@ -173,6 +186,17 @@ export default function BottleManager() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (savingRef.current) return
+    const validationError = validateBottleForm(formData)
+    if (validationError) {
+      setFormError(validationError)
+      const field = validationError.includes('namn') ? '3' : validationError.includes('pris') ? '4' : '5'
+      document.getElementById(`bottlemanager-field-${field}`)?.focus()
+      return
+    }
+    savingRef.current = true
+    setSaving(true)
+    setFormError('')
     const existingItem = hasEditingId
       ? currentItems.find((item) => item.id === editingId)
       : null
@@ -212,7 +236,7 @@ export default function BottleManager() {
       buteljerare: formData.buteljerare,
       stil: formData.stil,
       isActive: existingItem?.isActive ?? true,
-      id: hasEditingId ? editingId : Date.now(),
+      id: hasEditingId ? editingId : crypto.randomUUID(),
     }
 
     let updatedList
@@ -228,7 +252,10 @@ export default function BottleManager() {
       ...data,
       [activeTab]: updatedList,
     })
+    savingRef.current = false
+    setSaving(false)
     if (didSave) {
+      setMessage(`${itemToSave.namn} har sparats.`)
       setIsModalOpen(false)
     }
   }
@@ -242,13 +269,15 @@ export default function BottleManager() {
         <div className="tab-group">
           <button
             className={`tab-btn ${activeTab === 'whiskey' ? 'active' : ''}`}
-            onClick={() => setActiveTab('whiskey')}
+            aria-pressed={activeTab === 'whiskey'}
+            onClick={() => { setActiveTab('whiskey'); setSearchTerm('') }}
           >
             Whiskey ({data.whiskey.length})
           </button>
           <button
             className={`tab-btn ${activeTab === 'rums' ? 'active' : ''}`}
-            onClick={() => setActiveTab('rums')}
+            aria-pressed={activeTab === 'rums'}
+            onClick={() => { setActiveTab('rums'); setSearchTerm('') }}
           >
             Rom ({data.rums.length})
           </button>
@@ -256,10 +285,11 @@ export default function BottleManager() {
       </div>
 
       <div className="search-bar-row">
-        <Search size={20} color="#666" />
+        <Search aria-hidden="true" size={20} color="#666" />
         <input
           type="text"
           className="search-input-field"
+          aria-label="Sök flaskor i administrationen"
           placeholder="Sök på destilleri, serie, flaska, extra info..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -267,6 +297,7 @@ export default function BottleManager() {
         <button
           type="button"
           className="btn-primary layout-row-center gap-small"
+          data-dialog-fallback
           onClick={openAddModal}
         >
           <Plus size={18} />
@@ -274,15 +305,13 @@ export default function BottleManager() {
         </button>
       </div>
 
+      <div className="admin-feedback"><p role="status">{message}</p><Link to={`/dryck?category=${activeTab === 'rums' ? 'rom' : 'whiskey'}`}>Visa kundlistan</Link></div>
+      <p className="admin-result-count" role="status">Visar {filteredItems.length} av {currentItems.length} flaskor</p>
       <div className="manager-grid list-view">
         {filteredItems.map((item) => {
           const isExpanded = expandedId === item.id
           const summaryMetadata = [
-            formatBottleAge(item.ålder),
-            item.procent,
-            item.pris !== undefined && item.pris !== null && item.pris !== ''
-              ? `${item.pris} kr/cl`
-              : '',
+            bottleSummary(item),
             item.lagerantal !== undefined &&
             item.lagerantal !== null &&
             item.lagerantal !== ''
@@ -377,18 +406,19 @@ export default function BottleManager() {
               )}
 
               <div className="card-actions-bottom">
-                <button aria-label="Förhandsgrandska"
+                <Link className="admin-customer-link" aria-label={`Visa ${item.namn} i kundlistan`} to={`/dryck?category=${activeTab === 'rums' ? 'rom' : 'whiskey'}&q=${encodeURIComponent(item.namn)}`} onClick={event => event.stopPropagation()}>Visa hos kund</Link>
+                <button aria-label={`Visa detaljer för ${item.namn}`}
                   type="button"
                   className="btn-icon"
                   onClick={(e) => {
                     e.stopPropagation()
                     toggleExpand(item.id)
                   }}
-                  title="Förhandsgrandska"
+                  title="Visa detaljer"
                 >
                   <Eye size={18} />
                 </button>
-                <button aria-label="Redigera"
+                <button aria-label={`Redigera ${item.namn}`}
                   type="button"
                   className="btn-icon"
                   onClick={(e) => openEditModal(e, item)}
@@ -396,7 +426,7 @@ export default function BottleManager() {
                 >
                   <Edit2 size={18} />
                 </button>
-                <button aria-label="Ta bort"
+                <button aria-label={`Ta bort ${item.namn}`}
                   type="button"
                   className="btn-icon text-alert"
                   onClick={(e) => handleDelete(e, item.id)}
@@ -417,29 +447,12 @@ export default function BottleManager() {
       </div>
 
       {isModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
-          <div
-            className="manager-card modal-content large"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="layout-row-between margin-bottom-xl">
-              <h2 className="margin-none">
-                {hasEditingId ? 'Redigera Flaska' : 'Lägg till Flaska'} (
-                {activeTab === 'whiskey' ? 'Whiskey' : 'Rom'})
-              </h2>
-              <button aria-label="Stäng"
-                type="button"
-                className="btn-icon text-alert"
-                onClick={() => setIsModalOpen(false)}
-              >
-                <X size={24} />
-              </button>
-            </div>
-
+        <Modal title={`${hasEditingId ? 'Redigera flaska' : 'Lägg till flaska'} (${activeTab === 'whiskey' ? 'Whiskey' : 'Rom'})`} onClose={requestClose}>
+            <p className="admin-form-help">* Obligatoriskt. Namnet bildas av destilleri, serie och flaska.</p>
             <form onSubmit={handleSubmit} className="grid-form-2">
               <div className="form-group">
                 <label className="form-label" htmlFor="bottlemanager-field-1">Destilleri</label>
-                <input id="bottlemanager-field-1"
+                <input id="bottlemanager-field-1" list="facet-destilleri"
                   className="form-control"
                   value={formData.destilleri}
                   onChange={(e) =>
@@ -460,8 +473,8 @@ export default function BottleManager() {
               </div>
 
               <div className="form-group span-2">
-                <label className="form-label" htmlFor="bottlemanager-field-3">Flaska</label>
-                <input id="bottlemanager-field-3"
+                <label className="form-label" htmlFor="bottlemanager-field-3">Flaska *</label>
+                <input id="bottlemanager-field-3" required
                   className="form-control"
                   value={formData.flaska}
                   onChange={(e) =>
@@ -472,7 +485,7 @@ export default function BottleManager() {
 
               <div className="form-group">
                 <label className="form-label" htmlFor="bottlemanager-field-4">Pris (kr/cl) *</label>
-                <input id="bottlemanager-field-4"
+                <input id="bottlemanager-field-4" min="0" step="0.01"
                   type="number"
                   required
                   className="form-control"
@@ -526,7 +539,7 @@ export default function BottleManager() {
 
               <div className="form-group">
                 <label className="form-label" htmlFor="bottlemanager-field-8">Fat (Cask)</label>
-                <input id="bottlemanager-field-8"
+                <input id="bottlemanager-field-8" list="facet-fat"
                   className="form-control"
                   value={formData.fat}
                   onChange={(e) =>
@@ -537,7 +550,7 @@ export default function BottleManager() {
 
               <div className="form-group">
                 <label className="form-label" htmlFor="bottlemanager-field-9">Rökighet</label>
-                <input id="bottlemanager-field-9"
+                <input id="bottlemanager-field-9" list="facet-rökighet"
                   className="form-control"
                   value={formData.rökighet}
                   onChange={(e) =>
@@ -548,7 +561,7 @@ export default function BottleManager() {
 
               <div className="form-group">
                 <label className="form-label" htmlFor="bottlemanager-field-10">Region</label>
-                <input id="bottlemanager-field-10"
+                <input id="bottlemanager-field-10" list="facet-region"
                   className="form-control"
                   value={formData.region}
                   onChange={(e) =>
@@ -559,7 +572,7 @@ export default function BottleManager() {
 
               <div className="form-group">
                 <label className="form-label" htmlFor="bottlemanager-field-11">Land</label>
-                <input id="bottlemanager-field-11"
+                <input id="bottlemanager-field-11" list="facet-land"
                   className="form-control"
                   value={formData.land}
                   onChange={(e) =>
@@ -570,7 +583,7 @@ export default function BottleManager() {
 
               <div className="form-group">
                 <label className="form-label" htmlFor="bottlemanager-field-12">Stil</label>
-                <input id="bottlemanager-field-12"
+                <input id="bottlemanager-field-12" list="facet-stil"
                   className="form-control"
                   value={formData.stil}
                   onChange={(e) =>
@@ -593,7 +606,7 @@ export default function BottleManager() {
 
               <div className="form-group">
                 <label className="form-label" htmlFor="bottlemanager-field-14">Buteljerare</label>
-                <input id="bottlemanager-field-14"
+                <input id="bottlemanager-field-14" list="facet-buteljerare"
                   className="form-control"
                   value={formData.buteljerare}
                   onChange={(e) =>
@@ -613,22 +626,28 @@ export default function BottleManager() {
                 />
               </div>
 
-              <div className="span-2 layout-flex gap-medium-small margin-top-medium justify-content-end">
+              <div className="span-2 admin-name-preview">Visningsnamn: <strong>{composeBottleName(formData) || 'Ange flaskans namn'}</strong></div>
+              {formError && <p className="span-2 admin-form-error" role="alert">{formError}</p>}
+              <div className="span-2 admin-dialog-actions">
                 <button
                   type="button"
                   className="btn-secondary danger"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={requestClose}
                 >
                   Avbryt
                 </button>
-                <button type="submit" className="btn-primary">
-                  Spara Flaska
+                <button type="submit" className="btn-primary" disabled={saving}>
+                  {saving ? 'Sparar…' : 'Spara flaska'}
                 </button>
               </div>
+              {[...facetFields, 'fat'].map(field => <datalist key={field} id={`facet-${field}`}>{[...new Set([...data.whiskey, ...data.rums].map(item => item[field]).filter(Boolean))].sort().map(value => <option key={value} value={value} />)}</datalist>)}
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
+      {confirmation && <Modal alert title={confirmation.type === 'discard' ? 'Kasta osparade ändringar?' : 'Ta bort flaska?'} onClose={() => setConfirmation(null)}>
+        <p>{confirmation.type === 'discard' ? 'Dina ändringar har inte sparats.' : `${confirmation.name} tas bort även från kundlistan.`}</p>
+        <div className="admin-dialog-actions"><button type="button" className="btn-secondary" onClick={() => setConfirmation(null)}>{confirmation.type === 'discard' ? 'Fortsätt redigera' : 'Avbryt'}</button><button type="button" className="btn-primary" onClick={confirmAction}>{confirmation.type === 'discard' ? 'Kasta ändringar' : 'Ta bort'}</button></div>
+      </Modal>}
     </div>
   )
 }

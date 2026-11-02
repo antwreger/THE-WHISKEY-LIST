@@ -1,4 +1,5 @@
 import { loadItems, saveItems } from '../data.js'
+import { normalizeBottleFacets } from './bottles.js'
 
 // August's item -> bottle mapping. Only persistence is replaced for this local demo.
 function apiItemToBottleUi(row) {
@@ -32,10 +33,16 @@ export async function getBottles(options = {}) {
   const compare = (a,b) => (a.namn || '').localeCompare(b.namn || '', 'sv-SE', { sensitivity:'base', numeric:true })
   result.whiskey.sort(compare)
   result.rums.sort(compare)
-  return result
+  return normalizeBottleFacets(result)
 }
 
 export async function saveBottles(data) {
+  const reference = await getBottles({ admin: true, activeOnly: false })
+  data = normalizeBottleFacets(data, reference)
+  for (const item of [...(data.whiskey || []), ...(data.rums || [])]) {
+    if (!String(item.namn ?? '').trim()) throw new Error('Flaskan måste ha ett namn.')
+    if (item.pris === '' || !Number.isFinite(Number(item.pris)) || Number(item.pris) < 0) throw new Error('Ogiltigt pris.')
+  }
   const convert = (item, category, index) => ({
     id:String(item.id), tenant_id:'brygghuset-demo', category, name:item.namn,
     description:item.fritext || '', price_text:String(item.pris), is_active:item.isActive !== false,
@@ -50,9 +57,11 @@ export async function saveBottles(data) {
     ...(data.whiskey || []).map((item,index)=>convert(item,'whiskey',index)),
     ...(data.rums || []).map((item,index)=>convert(item,'rum',index)),
   ])
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('bottles-updated'))
   return data
 }
 
 export async function deleteTenantItem(id) {
   saveItems(loadItems().filter(item=>item.id!==String(id)))
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('bottles-updated'))
 }

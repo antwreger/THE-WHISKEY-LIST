@@ -8,16 +8,13 @@ import Footer from '../components/Footer'
 import Seo from '../components/Seo'
 import { getBottles } from '../utils/dataProvider'
 import { previewBottles } from '../mockData/previewBottles'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
+import { matchesBottleSearch, bottleSummary } from '../utils/bottles'
 import '../dryck.css'
 import '../aktuellt.css'
 
 function DrinkCard({ item }) {
   const [expanded, setExpanded] = useState(false)
-
-  // Determine if we have extra info to show
-  // (We show a few fields in summary, rest in details)
-  const hasDetails = true
 
   return (
     <li className={`dryck-item ${expanded ? 'expanded' : ''}`}>
@@ -29,19 +26,13 @@ function DrinkCard({ item }) {
         aria-expanded={expanded}
         aria-label={`${expanded ? 'Stäng detaljer för' : 'Visa mer info om'} ${item.namn}`}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') setExpanded(!expanded)
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(!expanded) }
         }}
       >
         <div className="dryck-info-left">
           <div className="dryck-name">{item.namn}</div>
           <div className="dryck-meta">
-            {item.ålder}{' '}
-            {item.ålder !== 'NAS' &&
-            item.ålder !== 'blend' &&
-            !item.ålder.includes('år')
-              ? 'år'
-              : ''}{' '}
-            • {item.procent} • {item.pris} kr/cl
+            {bottleSummary(item)}
           </div>
         </div>
         <div className="dryck-info-right">
@@ -85,11 +76,11 @@ function DrinkCard({ item }) {
                 <span className="detail-value">{item.importör}</span>
               </div>
             )}
-            {item.region && (
+            {(item.region || item.land) && (
               <div className="detail-row detail-region-land">
                 <span className="detail-label">Region/Land:</span>
                 <span className="detail-value">
-                  {item.region}, {item.land}
+                  {[item.region, item.land].filter(Boolean).join(', ')}
                 </span>
               </div>
             )}
@@ -116,27 +107,6 @@ function DrinkCard({ item }) {
       )}
     </li>
   )
-}
-
-function getItemSearchString(item) {
-  return [
-    item.namn,
-    item.ålder,
-    item.procent,
-    item.fat,
-    item.rökighet,
-    item.destilleri,
-    item.region,
-    item.land,
-    item.importör,
-    item.buteljerad,
-    item.fritext,
-    item.buteljerare,
-    item.stil,
-    item.pris,
-  ]
-    .map((val) => (val || '').toString().toLowerCase())
-    .join(' ')
 }
 
 function parseAge(ageStr) {
@@ -233,22 +203,34 @@ export default function App() {
   const [data, setData] = useState({ whiskey: [], rums: [] })
 
   useEffect(() => {
-    getBottles()
-      .then(setData)
-      .catch(() => {
+    let active = true
+    const refresh = () => getBottles().then(value => {
+      if (active) { setData(value); setLoadError(false) }
+    }).catch(() => {
+      if (active) {
         if (import.meta.env.VITE_USE_MOCK_DATA === 'true') setData(previewBottles)
         else setLoadError(true)
-      })
+      }
+    })
+    refresh()
+    const onStorage = event => { if (event.key === 'brygghuset.whiskey-list.v1' || event.key === null) refresh() }
+    window.addEventListener('focus', refresh)
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('bottles-updated', refresh)
+    return () => {
+      active = false
+      window.removeEventListener('focus', refresh)
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('bottles-updated', refresh)
+    }
   }, [])
 
   const { whiskey = [], rums = [] } = data || {}
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(() => searchParams.get('q') || '')
   const [showFilter, setShowFilter] = useState(false)
   const requestedCategory = searchParams.get('category')
 
-  // 'Alla' doesn't exist as a mobile toggle, so an explicit
-  // ?category=all deep link on mobile falls through to the same
-  // default as no category at all.
+  // Mobile starts with whiskey; an existing All selection remains represented after resize.
   const [categoryFilter, setCategoryFilter] = useState(() => {
     if (requestedCategory === 'whiskey' || requestedCategory === 'rom') {
       return requestedCategory
@@ -326,43 +308,16 @@ export default function App() {
     })
   }, [selectedTags])
 
-  const filteredWhiskey = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    return whiskey.filter((w) => {
-      const searchStr = getItemSearchString(w)
-      const searchStrNoSpace = searchStr.replace(/\s+/g, '')
-      const matchesSearch =
-        !q ||
-        q
-          .split(/\s+/)
-          .every(
-            (term) =>
-              searchStr.includes(term) || searchStrNoSpace.includes(term)
-          )
-      const matchesTags = matchTags(w)
-      return matchesSearch && matchesTags
-    })
-  }, [search, whiskey, matchTags])
-
-  const filteredRums = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    return rums.filter((r) => {
-      const searchStr = getItemSearchString(r)
-      const searchStrNoSpace = searchStr.replace(/\s+/g, '')
-      const matchesSearch =
-        !q ||
-        q
-          .split(/\s+/)
-          .every(
-            (term) =>
-              searchStr.includes(term) || searchStrNoSpace.includes(term)
-          )
-      const matchesTags = matchTags(r)
-      return matchesSearch && matchesTags
-    })
-  }, [search, rums, matchTags])
+  const filteredWhiskey = useMemo(() => whiskey.filter(item => matchesBottleSearch(item, search) && matchTags(item)), [search, whiskey, matchTags])
+  const filteredRums = useMemo(() => rums.filter(item => matchesBottleSearch(item, search) && matchTags(item)), [search, rums, matchTags])
 
   const isFiltered = Boolean(search.trim()) || selectedTags.length > 0
+  const resultCount = (categoryFilter !== 'rom' ? filteredWhiskey.length : 0) + (categoryFilter !== 'whiskey' ? filteredRums.length : 0)
+  const [resultStatus, setResultStatus] = useState('')
+  useEffect(() => {
+    const timer = window.setTimeout(() => setResultStatus(`${resultCount} ${resultCount === 1 ? 'dryck matchar' : 'drycker matchar'} ditt urval.`), 300)
+    return () => window.clearTimeout(timer)
+  }, [resultCount, search, selectedTags, categoryFilter])
 
   return (
     <div className="app-root">
@@ -386,28 +341,23 @@ export default function App() {
               </h1>
               {categoryFilter === 'whiskey' && (
                 <p>
-                  Utforska vårt noggrant utvalda sortiment av whiskey,
-                  eller boka en av våra uppskattade provningar.
+                  Utforska vårt noggrant utvalda sortiment av whiskey
+                  och hitta en ny favorit.
                 </p>
               )}
               {categoryFilter === 'rom' && (
                 <p>
-                  Utforska vårt noggrant utvalda sortiment av rom, eller
-                  boka en av våra uppskattade provningar.
+                  Utforska vårt noggrant utvalda sortiment av rom och
+                  hitta en ny favorit.
                 </p>
               )}
               {categoryFilter === 'all' && (
                 <p>
                   Utforska vårt noggrant utvalda sortiment av whiskey och
-                  rom, eller boka en av våra uppskattade provningar.
+                  rom och hitta en ny favorit.
                 </p>
               )}
-              <Link
-                to="/dryckesprovningar"
-                className="btn CTA_btn dryck-cta"
-              >
-                Boka provning
-              </Link>
+
             </div>
 
             <div id="catalogue" />
@@ -416,7 +366,7 @@ export default function App() {
             <div className="dryck-top-bar">
               <div className="dryck-top-row dryck-browse-row">
                 <div className="category-toggles">
-                  {!isMobile && (
+                  {(!isMobile || categoryFilter === 'all') && (
                     <button
                       type="button"
                       className={`cat-btn ${
@@ -454,6 +404,7 @@ export default function App() {
                   <input
                     type="text"
                     placeholder="Sök dryck..."
+                    aria-label="Sök dryck"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
@@ -588,6 +539,8 @@ export default function App() {
               </h2>
             )}
 
+            <p className="sr-only" role="status">{resultStatus}</p>
+            {resultCount === 0 && !loadError && <div className="dryck-empty-state"><h2>Inga drycker matchar ditt urval</h2><p>Prova en annan sökning eller ta bort något filter.</p><button type="button" className="clear-filter-btn" onClick={() => { setSearch(''); setSelectedTags([]) }}>Rensa sökning och filter</button></div>}
             <div
               className={`dryck-container-flex view-mode-list ${
                 categoryFilter !== 'all' ? 'single-category' : ''
